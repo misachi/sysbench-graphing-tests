@@ -23,10 +23,11 @@ On the machine you wish to generate graphs on (I do this on my laptop), I get th
 1. Adjust run.threads with the parameters you want.  
 
 ### Run test ###
-1. Be sure mysql is configured as you want for your test run
+1. Be sure mysql/postgres is configured as you want for your test run
 1. Document what you are testing for the test run (pick a number for it).  See results_list.txt.
-1. Restart mysql so you have a level playing field
+1. Restart mysql/postgres so you have a level playing field
 1. run `sh run.threads <testnum>`.  This will kick off a series of queries on your test tables to load them into memory, and then kick off the sysbench.
+    - To test with Postgres: `sh run.threads <testnum> pgsql`. The default `HOST` and `PORT` are `localhost` and `5432` respectively. Ensure to set these if running different settings
 1. repeat with all the different variations you want to test
 
 ### Generate graph data ###
