@@ -10,15 +10,19 @@ THREADS=16
 
 # Determine run number for selecting an output directory
 RUN_NUMBER=$1
-OUTDIR=res$RUN_NUMBER
+OUTDIR=out/res$RUN_NUMBER
 mkdir -p $OUTDIR
 
 
-function test_stage()
+test_stage()
 {
   PIDLIST=""
-  for i in `seq 1 16` ; do
-    ( time mysql -e "select avg(id) from sbtest$i FORCE KEY (PRIMARY); " sbtest  ) > $OUTDIR/warmup.${i}.out 2>&1   &
+  for i in `seq 1 10` ; do
+    if [ $1 = "pgsql" ]; then
+      (time psql -U sbtest -h $HOST -c "select avg(id) from sbtest$i; " sbtest  ) > $OUTDIR/warmup.${i}.out 2>&1   &
+    else
+      ( time mysql -e "select avg(id) from sbtest$i FORCE KEY (PRIMARY); " sbtest  ) > $OUTDIR/warmup.${i}.out 2>&1   &
+    fi
    PIDLIST="$PIDLIST $!"
   done
 
@@ -28,9 +32,28 @@ function test_stage()
 
 runid="initial"
 
-test_stage
+test_stage $2
 
 iostat -dx 10 $(($RT/10+1))  >> $OUTDIR/iostat.$runid.res &
 dstat -t -v --nocolor --output $OUTDIR/dstat.$runid.res 10 $(($RT/10+1)) > $OUTDIR/dstat_plain.$runid.res  &
 
-sysbench --test=tests/db/oltp.lua  --oltp_tables_count=16 --oltp-table-size=$ROWS --rand-init=on  --num-threads=$THREADS --oltp-read-only=off --report-interval=10 --rand-type=zipf --rand-zipf-t=0.9 --mysql-socket=/tmp/mysql.sock --max-time=$RT --max-requests=0 --mysql-user=sbtest --mysql-password=sbtest  --percentile=99 run | tee -a $OUTDIR/sysbench.$runid.res
+if [ $1 = "pgsql" ]; then
+  sysbench oltp_read_only \
+      --tables=10 \
+      --table-size=$TABLESIZE \
+      --db-driver=pgsql \
+      --pgsql-host=$HOST \
+      --pgsql-port=$PORT \
+      --pgsql-user=sbtest \
+      --pgsql-password=sbtest \
+      --pgsql-db=sbtest \
+      --threads=$THREADS \
+      --report-interval=2 \
+      --rand-type=zipfian \
+      --rand-zipfian-exp=0.9 \
+      --percentile=99 \
+      --time=600 \
+      run | tee -a $OUTDIR/sysbench.$runid.res
+else
+  sysbench --test=tests/db/oltp.lua --oltp_tables_count=16 --oltp-table-size=$ROWS --rand-init=on  --num-threads=$THREADS --oltp-read-only=off --report-interval=10 --rand-type=zipf --rand-zipf-t=0.9 --mysql-socket=/tmp/mysql.sock --max-time=$RT --max-requests=0 --mysql-user=sbtest --mysql-password=sbtest  --percentile=99 run | tee -a $OUTDIR/sysbench.$runid.res
+fi
