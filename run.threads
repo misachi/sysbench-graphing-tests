@@ -14,12 +14,31 @@ OUTDIR=out/res$RUN_NUMBER
 mkdir -p $OUTDIR
 
 
+check_vars() {
+    if [ "$PORT" = "" ]; then
+        if [ $1 = "pgsql" ]; then
+          PORT=5432
+        else
+          PORT=3306
+        fi
+        echo "PORT is not set. Defaulting to $PORT"
+    fi
+
+    if [ "$HOST" = "" ]; then
+        echo "HOST is not set. Defaulting to localhost"
+        HOST=localhost
+    fi
+}
+
+check_vars
+
+
 test_stage()
 {
   PIDLIST=""
-  for i in `seq 1 10` ; do
+  for i in `seq 1 16` ; do
     if [ $1 = "pgsql" ]; then
-      (time psql -U sbtest -h $HOST -c "select avg(id) from sbtest$i; " sbtest  ) > $OUTDIR/warmup.${i}.out 2>&1   &
+      (time PGPASSWORD=sbtest psql -U sbtest -h $HOST -c "select avg(id) from sbtest$i; " sbtest  ) > $OUTDIR/warmup.${i}.out 2>&1   &
     else
       ( time mysql -e "select avg(id) from sbtest$i FORCE KEY (PRIMARY); " sbtest  ) > $OUTDIR/warmup.${i}.out 2>&1   &
     fi
@@ -39,8 +58,8 @@ dstat -t -v --nocolor --output $OUTDIR/dstat.$runid.res 10 $(($RT/10+1)) > $OUTD
 
 if [ $1 = "pgsql" ]; then
   sysbench oltp_read_only \
-      --tables=10 \
-      --table-size=$TABLESIZE \
+      --tables=16 \
+      --table-size=$ROWS \
       --db-driver=pgsql \
       --pgsql-host=$HOST \
       --pgsql-port=$PORT \
