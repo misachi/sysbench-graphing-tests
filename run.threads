@@ -38,7 +38,7 @@ test_stage()
   PIDLIST=""
   for i in `seq 1 16` ; do
     if [ $1 = "pgsql" ]; then
-      (time PGPASSWORD=sbtest psql -U sbtest -h $HOST -c "select avg(id) from sbtest$i; " sbtest  ) > $OUTDIR/warmup.${i}.out 2>&1   &
+      (PGPASSWORD=sbtest time psql -U sbtest -h $HOST -c "select avg(id) from sbtest$i; " sbtest  ) > $OUTDIR/warmup.${i}.out 2>&1   &
     else
       ( time mysql -e "select avg(id) from sbtest$i FORCE KEY (PRIMARY); " sbtest  ) > $OUTDIR/warmup.${i}.out 2>&1   &
     fi
@@ -56,7 +56,7 @@ test_stage $2
 iostat -dx 10 $(($RT/10+1))  >> $OUTDIR/iostat.$runid.res &
 dstat -t -v --nocolor --output $OUTDIR/dstat.$runid.res 10 $(($RT/10+1)) > $OUTDIR/dstat_plain.$runid.res  &
 
-if [ $1 = "pgsql" ]; then
+if [ $2 = "pgsql" ]; then
   sysbench oltp_read_only \
       --tables=16 \
       --table-size=$ROWS \
